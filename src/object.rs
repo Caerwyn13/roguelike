@@ -40,6 +40,16 @@ impl Object {
         }
     }
 
+    pub fn max_hp(&self, game: &Game) -> i32 {
+        let base_max_hp = self.fighter.map_or(0, |f| f.base_max_hp);
+        let bonus: i32 = self
+            .get_all_equipped(game)
+            .iter()
+            .map(|e| e.max_hp_bonus)
+            .sum();
+        base_max_hp + bonus
+    }
+
     pub fn pos(&self) -> (i32, i32) {
         (self.x, self.y)
     }
@@ -68,10 +78,10 @@ impl Object {
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Fighter {
-    pub max_hp: i32,
+    pub base_max_hp: i32,
     pub hp: i32,
-    pub defense: i32,
-    pub power: i32,
+    pub base_defense: i32,
+    pub base_power: i32,
     pub xp: i32,
     pub on_death: DeathCallback,
 }
@@ -84,7 +94,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>, level: u3
         Transition { level: 6, value: 5 },
     ], level);
     
-    let num_monsters = rand::thread_rng().gen_range(0, max_monsters);
+    let num_monsters = rand::thread_rng().gen_range(0, max_monsters + 1);
 
     let troll_chance = from_dungeon_level(&[
         Transition { level: 3, value: 15 },
@@ -115,10 +125,11 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>, level: u3
         Weighted { weight: from_dungeon_level(&[Transition { level: 4, value: 25 }], level), item: Item::Lightning },
         Weighted { weight: from_dungeon_level(&[Transition { level: 6, value: 25 }], level), item: Item::Fireball },
         Weighted { weight: from_dungeon_level(&[Transition { level: 2, value: 10 }], level), item: Item::Confuse },
-        Weighted { weight: 1000, item: Item::Equipment }, // TODO: Adjust weight
+        Weighted { weight: from_dungeon_level(&[Transition { level: 4, value:  5 }], level), item: Item::Sword },
+        Weighted { weight: from_dungeon_level(&[Transition { level: 8, value: 15 }], level), item: Item::Shield },
     ];
     let item_choice = WeightedChoice::new(&mut item_choices);
-    let num_items = rand::thread_rng().gen_range(0, max_items);
+    let num_items = rand::thread_rng().gen_range(0, max_items + 1);
 
     for _ in 0..num_items {
         if let Some((x, y)) = find_unblocked_position(&room, map, objects) {
@@ -140,8 +151,8 @@ fn find_unblocked_position(room: &Rect, map: &Map, objects: &Vec<Object>) -> Opt
 
 fn create_monster(x: i32, y: i32, monster_type: &str) -> Object {
     let (char, colour, name, fighter) = match monster_type {
-        "orc" => ('o', DESATURATED_GREEN.into(), "orc", Fighter { max_hp: 20, hp: 20, defense: 0, power: 4, xp: 35, on_death: DeathCallback::Monster }),
-        "troll" => ('T', DARKER_GREEN.into(), "troll", Fighter { max_hp: 30, hp: 30, defense: 2, power: 8, xp: 100, on_death: DeathCallback::Monster }),
+        "orc" => ('o', DESATURATED_GREEN.into(), "orc", Fighter { base_max_hp: 20, hp: 20, base_defense: 0, base_power: 4, xp: 35, on_death: DeathCallback::Monster }),
+        "troll" => ('T', DARKER_GREEN.into(), "troll", Fighter { base_max_hp: 30, hp: 30, base_defense: 2, base_power: 8, xp: 100, on_death: DeathCallback::Monster }),
         _ => unreachable!(),
     };
     let mut monster = Object::new(x, y, char, colour, name, true);
@@ -153,16 +164,38 @@ fn create_monster(x: i32, y: i32, monster_type: &str) -> Object {
 
 fn create_item(x: i32, y: i32, item_type: Item) -> Object {
     let (char, colour, name) = match item_type {
-        Item::Equipment => ('/', SKY.into(), "Sword"),
         Item::Heal => ('!', VIOLET.into(), "Healing Potion"),
         Item::Lightning => ('#', LIGHT_YELLOW.into(), "Scroll of Lightning bolt"),
         Item::Fireball => ('#', DARKER_ORANGE.into(), "Scroll of Fireball"),
         Item::Confuse => ('#', PURPLE.into(), "Scroll of Confusion"),
+        Item::Sword => ('/', SKY.into(), "Sword"),
+        Item::Shield => ('[', LIGHTER_LIME.into(), "Shield"),
     };
+
     let mut object = Object::new(x, y, char, colour, name, false);
     object.item = Some(item_type);
-    if let Item::Equipment = item_type {
-        object.equipment = Some(Equipment { equipped: false, slot: Slot::RightHand });
+
+    match item_type {
+        Item::Sword => {
+            object.equipment = Some(Equipment {
+                equipped: false,
+                slot: Slot::RightHand,
+                power_bonus: 3, // Adjust as needed
+                defense_bonus: 0,
+                max_hp_bonus: 0,
+            });
+        }
+        Item::Shield => {
+            object.equipment = Some(Equipment {
+                equipped: false,
+                slot: Slot::LeftHand,
+                power_bonus: 0,
+                defense_bonus: 2, // Adjust as needed
+                max_hp_bonus: 0,
+            });
+        }
+        _ => {}
     }
+
     object
 }

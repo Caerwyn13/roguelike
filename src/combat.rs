@@ -5,7 +5,7 @@ use crate::*;
 impl Object {
     pub fn attack(&mut self, target: &mut Object, game: &mut Game) {
         // A simple formula for attack damage
-        let damage = self.fighter.map_or(0, |f| f.power) - target.fighter.map_or(0, |f| f.defense);
+        let damage = self.fighter.map_or(0, |f| f.base_power) - target.fighter.map_or(0, |f| f.base_defense);
 
         if damage > 0 {
             // Take damage
@@ -37,12 +37,13 @@ impl Object {
         None
     }
 
-    /// Heal by given amount, without going over the maximum
-    pub fn heal(&mut self, amount: i32) {
+    /// Heal by the given amount, without going over the maximum
+    pub fn heal(&mut self, amount: i32, game: &Game) {  
+        let max_hp = self.max_hp(game);  
         if let Some(ref mut fighter) = self.fighter {
             fighter.hp += amount;
-            if fighter.hp > fighter.max_hp {
-                fighter.hp = fighter.max_hp;
+            if fighter.hp > max_hp {  
+                fighter.hp = max_hp;  
             }
         }
     }

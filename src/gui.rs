@@ -76,9 +76,9 @@ pub fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_reco
         tcod.panel.print_rect(MSG_X, y, MSG_WIDTH, 0, msg);
     }
 
-    // show the player's stats
+    // Show the player's stats
     let hp = objects[PLAYER].fighter.map_or(0, |f| f.hp);
-    let max_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp);
+    let max_hp = objects[PLAYER].max_hp(game);    
     render_bar(
         &mut tcod.panel,
         1,
@@ -181,8 +181,19 @@ pub fn menu<T: AsRef<str>>(header: &str, options: &[T], width: i32, root: &mut R
 
 
 pub fn inventory_menu(inventory: &[Object], header: &str, root: &mut Root) -> Option<usize> {
-    let options = if inventory.len() == 0 { vec!["Inventory is empty".into()] } else { inventory.iter().map(|item| item.name.clone()).collect() };
+    let options = if inventory.len() == 0 { 
+        vec!["Inventory is empty.".into()] 
+    } else { 
+        inventory.iter().map(|item| {
+            match item.equipment {
+                Some(equipment) if equipment.equipped => {
+                    format!("{} (on {})", item.name, equipment.slot)
+                }
+                _ => item.name.clone(),
+            }
+        }).collect()
+    };
+
     let inventory_index = menu(header, &options, INVENTORY_WIDTH, root);
-    
     if inventory.len() > 0 { inventory_index } else { None }
 }

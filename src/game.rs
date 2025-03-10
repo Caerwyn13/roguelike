@@ -68,10 +68,10 @@ pub fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
     let mut player = Object::new(0, 0, '@', WHITE.into(), "player", true);
     player.alive = true;
     player.fighter = Some(Fighter {
-        max_hp: 100,
+        base_max_hp: 100,
         hp: 100,
-        defense: 1,
-        power: 4,
+        base_defense: 1,
+        base_power: 2,
         xp: 0,
         on_death: DeathCallback::Player,
     });
@@ -80,6 +80,18 @@ pub fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
     let mut game = Game { map: make_map(&mut objects, 1), messages: Messages::new(), inventory: vec![], dungeon_level: 1 };
 
     initialise_fov(tcod, &game.map);
+
+    // Give the player a starting dagger
+    let mut dagger = Object::new(0, 0, '-', SKY.into(), "Dagger", false);
+    dagger.item = Some(Item::Sword);
+    dagger.equipment = Some(Equipment {
+        equipped: true,
+        slot: Slot::LeftHand,
+        max_hp_bonus: 0,
+        defense_bonus: 0,
+        power_bonus: 2,
+    });
+    game.inventory.push(dagger);
 
     // Welcome message!
     game.messages.add(
@@ -147,8 +159,8 @@ fn load_game() -> Result<(Game, Vec<Object>), Box<dyn Error>> {
 pub fn next_level(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
     game.messages.add("You take a moment to rest, and recover your strength.", VIOLET.into());
     
-    let heal_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp / 2);
-    objects[PLAYER].heal(heal_hp);
+    let heal_hp = objects[PLAYER].max_hp(game) / 2;
+    objects[PLAYER].heal(heal_hp, game);
 
     game.messages.add("You descend deeper into the dungeon...", RED.into());
 
